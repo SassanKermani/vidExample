@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>test Three</title>
+</head>
+<body style="background-color: grey">
+<center>
+	<div id="base">
+		<button onclick="call();">call</button>
+		<br>
+		<button onclick="notCall()">awnser</button>
+	</div>
+	<div id="call" hidden>
+		<h3>call</h3>
+		<p id="callStirng"></p>
+		<input type="text" id="callInput">
+		<br>
+		<button id="callTwo">connect</button>
+		<br>
+		<video controls autoplay id="callVid"></video>
+		<br>
+		<input type="text" id="callInputChat">
+		<br>
+		<button id="callSendChat">send</button>
+		<ul id="callchat">
+			
+		</ul>
+	</div>
+	<div id="notCall" hidden>
+		<h3>awnser</h3>
+		<p id="notCallStirng"></p>
+		<input type="text" id="notCallInput">
+		<br>
+		<button id="notCallTwo">send to friend</button>
+		<br>
+		<video controls autoplay id="notCallVid"></video>
+		<br>
+		<input type="text" id="notCallInputChat">
+		<br>
+		<button id="notCallSendChat">send</button>
+		<ul id="notCallchat">
+			
+		</ul>
+	</div>
+</center>
+<script type="text/javascript">
+
+	call = async ()=>{
+		let obj = {};
+
+		document.getElementById(`base`).setAttribute(`hidden`, true);
+		document.getElementById(`call`).removeAttribute(`hidden`);
+
+		let localConnection = new RTCPeerConnection(RTCPeerConnection.defaultIceServers);
+		let sendChannel = localConnection.createDataChannel('sendDataChannel');
+
+		let stream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+		stream.getTracks().forEach(track => localConnection.addTrack(track, stream));
+
+		localConnection.createOffer().then((offer)=>{
+			localConnection.setLocalDescription(offer);
+			obj.data = offer;
+		})
+
+		localConnection.onicecandidate = (event)=> {
+			if(event.candidate){
+				obj.ice = event.candidate;
+				document.getElementById(`callStirng`).innerHTML = JSON.stringify(obj);
+			}
+		};
+
+		//call part two
+		document.getElementById(`callTwo`).addEventListener(`click`, ()=>{
+			let otherObj = JSON.parse(document.getElementById(`callInput`).value);
+
+			localConnection.setRemoteDescription(otherObj.data);
+			localConnection.addIceCandidate(otherObj.ice);
+
+			localConnection.ondatachannel = (event)=>{
+				console.log('Receive Channel Callback');
+				receiveChannel = event.channel;
+				receiveChannel.onmessage = (eventTwo)=>{
+					console.log('Received Message');
+					console.log(eventTwo.data);
+					let tempNode = document.createElement(`ul`)
+					tempNode.innerHTML = eventTwo.data;
+					document.getElementById(`callchat`).insertBefore(tempNode, document.getElementById(`callchat`).childNodes[0]);
+				};
+			}
+
+			sendChannel.onopen = ()=>{
+				document.getElementById(`callSendChat`).addEventListener(`click`, ()=>{
+					sendChannel.send(document.getElementById(`callInputChat`).value);
+				})
+			}
+
+			let inboundStream = null;
+			localConnection.ontrack = ev => {
+				videoElem = document.getElementById(`callVid`);
+
+				if (ev.streams && ev.streams[0]) {
+					videoElem.srcObject = ev.streams[0];
+				} else {
+				if (!inboundStream) {
+					inboundStream = new MediaStream();
+					videoElem.srcObject = inboundStream;
+				}
+					inboundStream.addTrack(ev.track);
+				}
+			}
+
+		});
+	}
+
+	let notCall = ()=>{
+		document.getElementById(`base`).setAttribute(`hidden`, true);
+		document.getElementById(`notCall`).removeAttribute(`hidden`);
+
+		//notCall part two
+		document.getElementById(`notCallTwo`).addEventListener(`click`, async()=>{
+			let otherObj = JSON.parse(document.getElementById(`notCallInput`).value);
+			let obj = {};
+
+			let remoteConnection = new RTCPeerConnection(RTCPeerConnection.defaultIceServers);
+			let sendChannel = remoteConnection.createDataChannel('sendDataChannel');
+
+			let stream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+			stream.getTracks().forEach(track => remoteConnection.addTrack(track, stream));
+
+			remoteConnection.setRemoteDescription(otherObj.data);
+			remoteConnection.addIceCandidate(otherObj.ice);
+			remoteConnection.createAnswer().then((awnser)=>{
+				remoteConnection.setLocalDescription(awnser);
+				obj.data = awnser;
+			});
+
+			remoteConnection.onicecandidate = (event)=> {
+				if(event.candidate){
+					obj.ice = event.candidate;
+					document.getElementById(`notCallStirng`).innerHTML = JSON.stringify(obj);
+				}
+			};
+
+			remoteConnection.ondatachannel = (event)=>{
+				console.log('Receive Channel Callback');
+				receiveChannel = event.channel;
+				receiveChannel.onmessage = (eventTwo)=>{
+					console.log('Received Message');
+					console.log(eventTwo.data);
+					let tempNode = document.createElement(`ul`)
+					tempNode.innerHTML = eventTwo.data;
+					document.getElementById(`notCallchat`).insertBefore(tempNode, document.getElementById(`notCallchat`).childNodes[0]);
+				};
+			}
+
+			sendChannel.onopen = ()=>{
+				document.getElementById(`notCallSendChat`).addEventListener(`click`, ()=>{
+					sendChannel.send(document.getElementById(`notCallInputChat`).value);
+				})
+			}
+
+			let inboundStream = null;
+			remoteConnection.ontrack = ev => {
+				videoElem = document.getElementById(`notCallVid`);
+
+				if (ev.streams && ev.streams[0]) {
+					videoElem.srcObject = ev.streams[0];
+				} else {
+				if (!inboundStream) {
+					inboundStream = new MediaStream();
+					videoElem.srcObject = inboundStream;
+				}
+					inboundStream.addTrack(ev.track);
+				}
+			}
+
+		});
+	}
+
+</script>
+</body>
+</html>
